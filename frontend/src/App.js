@@ -15,6 +15,7 @@ import Investment from './components/Investment';
 import Recharge from './components/Recharge';
 import Withdrawal from './components/Withdrawal';
 import Referral from './components/Referral';
+import AdminPanel from './components/AdminPanel';
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
             <Route path="/recharge" element={<Recharge />} />
             <Route path="/withdrawal" element={<Withdrawal />} />
             <Route path="/referral" element={<Referral />} />
+            <Route path="/admin" element={<AdminPanel />} />
           </Routes>
         </Container>
         <Footer />

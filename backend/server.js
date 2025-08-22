@@ -16,7 +16,24 @@ app.use(cors());
 app.use(express.json());
 
 // In-memory data structures (in a real app, you would use a database)
-let users = [];
+let users = [
+  // Default admin user
+  {
+    id: 1,
+    name: "Admin User",
+    mobileNumber: "9999999999",
+    username: "admin",
+    password: "$2a$10$8K1p/a0dhrxiowP.dnkgNORTWgdEDHn5L2/xjpEWuC.QQv4rKO9jO", // Hashed "Admin123!"
+    referralCode: "ADMIN001",
+    referredBy: null,
+    balance: 0,
+    earnings: 0,
+    withdrawalWallet: 0,
+    investments: [],
+    isAdmin: true,
+    createdAt: new Date()
+  }
+];
 let investmentPlans = [
   {
     id: 1,
@@ -65,6 +82,11 @@ function findUser(identifier) {
   );
 }
 
+// Helper function to verify if user is admin
+function isAdminUser(user) {
+  return user && user.isAdmin === true;
+}
+
 // Helper function to verify password
 function verifyPassword(password, hashedPassword) {
   return bcrypt.compareSync(password, hashedPassword);
@@ -73,7 +95,11 @@ function verifyPassword(password, hashedPassword) {
 // Helper function to generate JWT token
 function generateToken(user) {
   return jwt.sign(
-    { id: user.id, username: user.username },
+    { 
+      id: user.id, 
+      username: user.username,
+      isAdmin: isAdminUser(user)
+    },
     process.env.JWT_SECRET || 'a0QAW6CshPrs3tFjy8I8YwKsIlT8vLSNgYvG3CVgH481d+tB++duJuAlI8mQ2tKiiWqcqRY5lcltkAS4iUQhZw==',
     { expiresIn: '24h' }
   );
@@ -129,6 +155,7 @@ app.post('/api/register', (req, res) => {
       earnings: 0,
       withdrawalWallet: 0,
       investments: [],
+      isAdmin: false, // Regular users are not admins
       createdAt: new Date()
     };
     
@@ -192,7 +219,8 @@ app.post('/api/login', (req, res) => {
         referredBy: user.referredBy,
         balance: user.balance,
         earnings: user.earnings,
-        withdrawalWallet: user.withdrawalWallet
+        withdrawalWallet: user.withdrawalWallet,
+        isAdmin: isAdminUser(user)
       },
       token
     });
@@ -228,7 +256,8 @@ app.get('/api/profile', (req, res) => {
         balance: user.balance,
         earnings: user.earnings,
         withdrawalWallet: user.withdrawalWallet,
-        investments: user.investments
+        investments: user.investments,
+        isAdmin: isAdminUser(user)
       }
     });
   } catch (error) {
@@ -301,6 +330,39 @@ app.post('/api/recharge', (req, res) => {
   }
 });
 
+// Admin: Approve Recharge (This would be called by admin to approve a recharge)
+app.put('/api/admin/transactions/:id/approve', requireAdmin, (req, res) => {
+  try {
+    const transactionId = parseInt(req.params.id);
+    const transaction = transactions.find(t => t.id === transactionId);
+    
+    if (!transaction) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+    
+    if (transaction.status !== 'pending') {
+      return res.status(400).json({ message: 'Transaction is not pending' });
+    }
+    
+    // Update transaction status
+    transaction.status = 'completed';
+    transaction.updatedAt = new Date();
+    
+    // Add amount to user's withdrawal wallet
+    const user = users.find(u => u.id === transaction.userId);
+    if (user) {
+      user.withdrawalWallet += transaction.amount;
+    }
+    
+    res.json({
+      message: 'Recharge approved successfully',
+      transaction
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // Submit Withdrawal Request
 app.post('/api/withdraw', (req, res) => {
   try {
@@ -324,9 +386,19 @@ app.post('/api/withdraw', (req, res) => {
     
     const withdrawalAmount = parseFloat(amount);
     
+    // Validate amount is a positive number
+    if (isNaN(withdrawalAmount) || withdrawalAmount <= 0) {
+      return res.status(400).json({ message: 'Amount must be a positive number' });
+    }
+    
     // Check if user has sufficient balance
     if (user.withdrawalWallet < withdrawalAmount) {
       return res.status(400).json({ message: 'Insufficient balance' });
+    }
+    
+    // Check minimum withdrawal amount (₹100)
+    if (withdrawalAmount < 100) {
+      return res.status(400).json({ message: 'Minimum withdrawal amount is ₹100' });
     }
     
     // Create withdrawal
@@ -376,6 +448,117 @@ app.get('/api/withdrawals', (req, res) => {
   }
 });
 
+// Get Transaction History
+app.get('/api/transactions', (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'a0QAW6CshPrs3tFjy8I8YwKsIlT8vLSNgYvG3CVgH481d+tB++duJuAlI8mQ2tKiiWqcqRY5lcltkAS4iUQhZw==');
+    const user = users.find(u => u.id === decoded.id);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Combine all transactions for the user (recharges, withdrawals, etc.)
+    const userTransactions = [];
+    
+    // Add recharge transactions
+    const rechargeTransactions = transactions.filter(t => t.userId === user.id);
+    userTransactions.push(...rechargeTransactions.map(t => ({
+      id: t.id,
+      userId: t.userId,
+      amount: t.amount,
+      transactionType: t.transactionType,
+      status: t.status,
+      utrNumber: t.utrNumber,
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt
+    })));
+    
+    // Add withdrawal transactions
+    const withdrawalTransactions = withdrawals.filter(w => w.userId === user.id);
+    userTransactions.push(...withdrawalTransactions.map(w => ({
+      id: w.id,
+      userId: w.userId,
+      amount: w.amount,
+      transactionType: 'withdrawal',
+      status: w.status,
+      createdAt: w.createdAt,
+      updatedAt: w.updatedAt,
+      processedAt: w.processedAt
+    })));
+    
+    // Sort by date (newest first)
+    userTransactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    res.json({ transactions: userTransactions });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Admin: Approve Recharge (This would be called by admin to approve a recharge)
+app.put('/api/admin/transactions/:id/approve', requireAdmin, (req, res) => {
+  try {
+    const transactionId = parseInt(req.params.id);
+    const transaction = transactions.find(t => t.id === transactionId);
+    
+    if (!transaction) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+    
+    if (transaction.status !== 'pending') {
+      return res.status(400).json({ message: 'Transaction is not pending' });
+    }
+    
+    // Update transaction status
+    transaction.status = 'completed';
+    transaction.updatedAt = new Date();
+    
+    // Add amount to user's withdrawal wallet
+    const user = users.find(u => u.id === transaction.userId);
+    if (user) {
+      user.withdrawalWallet += transaction.amount;
+    }
+    
+    res.json({
+      message: 'Recharge approved successfully',
+      transaction
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get Referral Details
+
+// Admin: Approve Recharge (This would be called by admin to approve a recharge)
+app.put('/api/admin/transactions/:id/approve', requireAdmin, (req, res) => {
+
+// Admin: Approve Recharge (This would be called by admin to approve a recharge)
+      return res.status(401).json({ message: 'No token provided' });
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'a0QAW6CshPrs3tFjy8I8YwKsIlT8vLSNgYvG3CVgH481d+tB++duJuAlI8mQ2tKiiWqcqRY5lcltkAS4iUQhZw==');
+    const user = users.find(u => u.id === decoded.id);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const userTransactions = transactions.filter(t => t.userId === user.id);
+    
+    res.json({ transactions: userTransactions });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // Get Referral Details
 app.get('/api/referrals', (req, res) => {
   try {
@@ -413,12 +596,33 @@ app.get('/api/referrals', (req, res) => {
   }
 });
 
+// Middleware to check if user is admin
+function requireAdmin(req, res, next) {
+  const token = req.headers.authorization?.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ message: 'No token provided' });
+  }
+  
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'a0QAW6CshPrs3tFjy8I8YwKsIlT8vLSNgYvG3CVgH481d+tB++duJuAlI8mQ2tKiiWqcqRY5lcltkAS4iUQhZw==');
+    
+    if (!decoded.isAdmin) {
+      return res.status(403).json({ message: 'Access denied. Admin rights required.' });
+    }
+    
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: 'Invalid token' });
+  }
+}
+
 // Admin Routes
 
 // Get all users (admin)
-app.get('/api/admin/users', (req, res) => {
+app.get('/api/admin/users', requireAdmin, (req, res) => {
   try {
-    // In a real app, you would verify admin token here
     res.json({ users: users.map(u => ({
       id: u.id,
       name: u.name,
@@ -430,7 +634,8 @@ app.get('/api/admin/users', (req, res) => {
       earnings: u.earnings,
       withdrawalWallet: u.withdrawalWallet,
       createdAt: u.createdAt,
-      isActive: u.isActive !== false
+      isActive: u.isActive !== false,
+      isAdmin: u.isAdmin || false
     })) });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -438,7 +643,7 @@ app.get('/api/admin/users', (req, res) => {
 });
 
 // Get all investment plans (admin)
-app.get('/api/admin/plans', (req, res) => {
+app.get('/api/admin/plans', requireAdmin, (req, res) => {
   try {
     res.json({ plans: investmentPlans });
   } catch (error) {
@@ -447,7 +652,7 @@ app.get('/api/admin/plans', (req, res) => {
 });
 
 // Create new investment plan (admin)
-app.post('/api/admin/plans', (req, res) => {
+app.post('/api/admin/plans', requireAdmin, (req, res) => {
   try {
     const { name, description, price, dailyProfitPercentage, durationDays, imageUrl } = req.body;
     
@@ -475,7 +680,7 @@ app.post('/api/admin/plans', (req, res) => {
 });
 
 // Update investment plan (admin)
-app.put('/api/admin/plans/:id', (req, res) => {
+app.put('/api/admin/plans/:id', requireAdmin, (req, res) => {
   try {
     const planId = parseInt(req.params.id);
     const plan = investmentPlans.find(p => p.id === planId);
@@ -505,18 +710,103 @@ app.put('/api/admin/plans/:id', (req, res) => {
   }
 });
 
-// Get all withdrawals (admin)
-app.get('/api/admin/withdrawals', (req, res) => {
+// Get all transactions (admin)
+app.get('/api/admin/transactions', requireAdmin, (req, res) => {
   try {
-    // In a real app, you would verify admin token here
+    // Combine all transactions (recharges, withdrawals, etc.)
+    const allTransactions = [];
+    
+    // Add recharge transactions
+    transactions.forEach(t => {
+      allTransactions.push({
+        id: t.id,
+        userId: t.userId,
+        amount: t.amount,
+        transactionType: t.transactionType,
+        status: t.status,
+        utrNumber: t.utrNumber,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt
+      });
+    });
+    
+    // Add withdrawal transactions
+    withdrawals.forEach(w => {
+      allTransactions.push({
+        id: w.id,
+        userId: w.userId,
+        amount: w.amount,
+        transactionType: 'withdrawal',
+        status: w.status,
+        createdAt: w.createdAt,
+        updatedAt: w.updatedAt,
+        processedAt: w.processedAt
+      });
+    });
+    
+    // Sort by date (newest first)
+    allTransactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    res.json({ transactions: allTransactions });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get all withdrawals (admin)
+app.get('/api/admin/withdrawals', requireAdmin, (req, res) => {
+  try {
     res.json({ withdrawals });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
+// Get all transactions (admin)
+app.get('/api/admin/transactions', requireAdmin, (req, res) => {
+  try {
+    // Combine all transactions (recharges, withdrawals, etc.)
+    const allTransactions = [];
+    
+    // Add recharge transactions
+    transactions.forEach(t => {
+      allTransactions.push({
+        id: t.id,
+        userId: t.userId,
+        amount: t.amount,
+        transactionType: t.transactionType,
+        status: t.status,
+        utrNumber: t.utrNumber,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt
+      });
+    });
+    
+    // Add withdrawal transactions
+    withdrawals.forEach(w => {
+      allTransactions.push({
+        id: w.id,
+        userId: w.userId,
+        amount: w.amount,
+        transactionType: 'withdrawal',
+        status: w.status,
+        createdAt: w.createdAt,
+        updatedAt: w.updatedAt,
+        processedAt: w.processedAt
+      });
+    });
+    
+    // Sort by date (newest first)
+    allTransactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    res.json({ transactions: allTransactions });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // Update withdrawal status (admin)
-app.put('/api/admin/withdrawals/:id', (req, res) => {
+app.put('/api/admin/withdrawals/:id', requireAdmin, (req, res) => {
   try {
     const withdrawalId = parseInt(req.params.id);
     const withdrawal = withdrawals.find(w => w.id === withdrawalId);
@@ -543,9 +833,8 @@ app.put('/api/admin/withdrawals/:id', (req, res) => {
 });
 
 // Get admin dashboard data
-app.get('/api/admin/dashboard', (req, res) => {
+app.get('/api/admin/dashboard', requireAdmin, (req, res) => {
   try {
-    // In a real app, you would verify admin token here
     const totalDeposits = transactions
       .filter(t => t.transactionType === 'recharge' && t.status === 'completed')
       .reduce((sum, t) => sum + t.amount, 0);

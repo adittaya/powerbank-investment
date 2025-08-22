@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardBody, CardTitle, Form, FormGroup, Label, Input, Button, Alert, Table } from 'reactstrap';
+import { Card, CardBody, CardTitle, Form, FormGroup, Label, Input, Button, Alert, Table, Row, Col } from 'reactstrap';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
@@ -9,6 +9,7 @@ const Withdrawal = () => {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [withdrawals, setWithdrawals] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
@@ -38,6 +39,15 @@ const Withdrawal = () => {
         });
         
         setWithdrawals(withdrawalsResponse.data.withdrawals);
+        
+        // Fetch transaction history
+        const transactionsResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/transactions`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        
+        setTransactions(transactionsResponse.data.transactions);
       } catch (err) {
         setError('Error fetching data');
         console.error('Error fetching data:', err);
@@ -52,6 +62,13 @@ const Withdrawal = () => {
     setLoading(true);
     setError('');
     setSuccess('');
+    
+    // Validate amount
+    if (!amount || parseFloat(amount) < 100) {
+      setError('Minimum withdrawal amount is ₹100');
+      setLoading(false);
+      return;
+    }
     
     try {
       const token = localStorage.getItem('token');
@@ -105,6 +122,68 @@ const Withdrawal = () => {
     <div>
       <h2 className="mb-4">Withdrawal</h2>
       
+      <Row className="mb-4">
+        <Col md="12">
+          <h4>Transaction History</h4>
+          {transactions && transactions.length > 0 ? (
+            <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+              <Table responsive size="sm">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map(transaction => (
+                    <tr key={transaction.id}>
+                      <td>{transaction.createdAt ? new Date(transaction.createdAt).toLocaleDateString() : 'N/A'}</td>
+                      <td>{transaction.transactionType || 'N/A'}</td>
+                      <td>₹{transaction.amount ? transaction.amount.toFixed(2) : '0.00'}</td>
+                      <td>{getStatusBadge(transaction.status || 'unknown')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
+          ) : (
+            <p>No transaction history found.</p>
+          )}
+        </Col>
+      </Row>
+      
+      <Row className="mb-4">
+        <Col md="12">
+          <h4>Withdrawal History</h4>
+          {withdrawals && withdrawals.length > 0 ? (
+            <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+              <Table responsive size="sm">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {withdrawals.map(withdrawal => (
+                    <tr key={withdrawal.id}>
+                      <td>{withdrawal.createdAt ? new Date(withdrawal.createdAt).toLocaleDateString() : 'N/A'}</td>
+                      <td>₹{withdrawal.amount ? withdrawal.amount.toFixed(2) : '0.00'}</td>
+                      <td>{getStatusBadge(withdrawal.status || 'unknown')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
+          ) : (
+            <p>No withdrawal history found.</p>
+          )}
+        </Col>
+      </Row>
+      
       <Row>
         <Col md="6">
           <Card className="mb-4">
@@ -113,7 +192,7 @@ const Withdrawal = () => {
               
               {user && (
                 <div className="mb-3">
-                  <p><strong>Available Balance:</strong> ₹{user.withdrawalWallet.toFixed(2)}</p>
+                  <p><strong>Available Balance:</strong> ₹{user.withdrawalWallet ? user.withdrawalWallet.toFixed(2) : '0.00'}</p>
                 </div>
               )}
               
@@ -142,39 +221,6 @@ const Withdrawal = () => {
                   {loading ? 'Processing...' : 'Request Withdrawal'}
                 </Button>
               </Form>
-            </CardBody>
-          </Card>
-        </Col>
-        
-        <Col md="6">
-          <Card className="mb-4">
-            <CardBody>
-              <CardTitle tag="h5">Withdrawal History</CardTitle>
-              
-              {withdrawals.length > 0 ? (
-                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                  <Table responsive>
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Amount</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {withdrawals.map((withdrawal) => (
-                        <tr key={withdrawal.id}>
-                          <td>{new Date(withdrawal.createdAt).toLocaleDateString()}</td>
-                          <td>₹{withdrawal.amount.toFixed(2)}</td>
-                          <td>{getStatusBadge(withdrawal.status)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                </div>
-              ) : (
-                <p>No withdrawal history found.</p>
-              )}
             </CardBody>
           </Card>
         </Col>

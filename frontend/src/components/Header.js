@@ -1,19 +1,35 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navbar, Nav, Container, Button } from 'reactstrap';
 import { Link, useNavigate } from 'react-router-dom';
 
 const Header = () => {
+  const [user, setUser] = useState(null);
   const navigate = useNavigate();
+  
+  useEffect(() => {
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        // Decode token to get user info
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        setUser(payload);
+      } catch (error) {
+        console.error('Error decoding token:', error);
+        // If there's an error decoding the token, remove it
+        localStorage.removeItem('token');
+      }
+    }
+  }, []);
   
   const handleLogout = () => {
     // Remove token from localStorage
     localStorage.removeItem('token');
+    // Clear user state
+    setUser(null);
     // Redirect to login page
     navigate('/login');
   };
-
-  // Check if user is logged in
-  const isLoggedIn = localStorage.getItem('token');
 
   return (
     <Navbar color="dark" dark expand="md">
@@ -22,7 +38,7 @@ const Header = () => {
           Prime Drink Investment
         </Link>
         <Nav className="ms-auto" navbar>
-          {isLoggedIn ? (
+          {user ? (
             <>
               <Link to="/dashboard" className="nav-link">
                 Dashboard
@@ -39,6 +55,11 @@ const Header = () => {
               <Link to="/referral" className="nav-link">
                 Referral
               </Link>
+              {user.isAdmin && (
+                <Link to="/admin" className="nav-link">
+                  Admin Panel
+                </Link>
+              )}
               <Button color="link" className="nav-link" onClick={handleLogout}>
                 Logout
               </Button>
