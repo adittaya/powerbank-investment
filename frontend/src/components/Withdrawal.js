@@ -22,7 +22,7 @@ const Withdrawal = () => {
         }
         
         // Fetch user profile to get withdrawal wallet balance
-        const userResponse = await axios.get('http://localhost:3000/api/profile', {
+        const userResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/profile`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -31,7 +31,7 @@ const Withdrawal = () => {
         setUser(userResponse.data.user);
         
         // Fetch withdrawal history
-        const withdrawalsResponse = await axios.get('http://localhost:3000/api/withdrawals', {
+        const withdrawalsResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/withdrawals`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -60,7 +60,7 @@ const Withdrawal = () => {
         return;
       }
       
-      const response = await axios.post('http://localhost:3000/api/withdraw', {
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/withdraw`, {
         amount
       }, {
         headers: {
@@ -72,7 +72,7 @@ const Withdrawal = () => {
       setAmount('');
       
       // Refresh withdrawals list
-      const withdrawalsResponse = await axios.get('http://localhost:3000/api/withdrawals', {
+      const withdrawalsResponse = await axios.get(`${process.env.REACT_APP_API_URL}/api/withdrawals`, {
         headers: {
           Authorization: `Bearer ${token}`
         }

@@ -12,7 +12,7 @@ const Investment = () => {
   useEffect(() => {
     const fetchPlans = async () => {
       try {
-        const response = await axios.get('http://localhost:3000/api/plans');
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/plans`);
         setPlans(response.data.plans);
       } catch (err) {
         setError('Error fetching investment plans');

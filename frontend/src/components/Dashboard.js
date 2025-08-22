@@ -17,7 +17,7 @@ const Dashboard = () => {
           return;
         }
         
-        const response = await axios.get('http://localhost:3000/api/profile', {
+        const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/profile`, {
           headers: {
             Authorization: `Bearer ${token}`
           }

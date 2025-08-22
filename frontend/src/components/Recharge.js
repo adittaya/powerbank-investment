@@ -53,7 +53,7 @@ const Recharge = () => {
         return;
       }
       
-      const response = await axios.post('http://localhost:3000/api/recharge', {
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/recharge`, {
         amount,
         utrNumber
       }, {
