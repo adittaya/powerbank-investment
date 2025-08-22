@@ -61,7 +61,7 @@ powerbank-investment/
 3. Set up environment variables:
    Create a `.env` file in the backend directory with the following:
    ```
-   PORT=3000
+   PORT=10000
    JWT_SECRET=your_jwt_secret_here
    DATABASE_URL=your_postgresql_connection_string
    ```
@@ -148,7 +148,7 @@ The following environment variables are used in the application:
 - `SUPABASE_API_KEY` - Supabase API key
 - `JWT_SECRET` - Secret key for JWT token generation
 - `RENDER_API_KEY` - Render API key
-- `PORT` - Server port (default: 3000)
+- `PORT` - Server port (default: 10000)
 - `NETLIFY_AUTH_TOKEN` - Netlify authentication token
 - `GITHUB_TOKEN` - GitHub personal access token
 
@@ -165,6 +165,11 @@ The frontend can be deployed to:
 - Netlify
 - Vercel
 - GitHub Pages
+
+To deploy to Netlify:
+1. Connect your GitHub repository to Netlify
+2. Netlify will automatically use the `netlify.toml` configuration
+3. Set the environment variables in Netlify dashboard using your `NETLIFY_AUTH_TOKEN`
 
 ### Admin Panel
 The admin panel can be deployed to:
