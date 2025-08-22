@@ -1,0 +1,57 @@
+.App {
+  text-align: center;
+}
+
+.sidebar {
+  min-width: 250px;
+  max-width: 250px;
+  background-color: #343a40;
+  color: white;
+  height: calc(100vh - 56px);
+  position: sticky;
+  top: 56px;
+  overflow-y: auto;
+}
+
+.sidebar .nav-link {
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 0.3s;
+}
+
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active {
+  color: white;
+}
+
+.main-content {
+  flex: 1;
+}
+
+.card-admin {
+  border-left: 4px solid #007bff;
+}
+
+.bg-admin-primary {
+  background-color: #007bff !important;
+}
+
+.bg-admin-success {
+  background-color: #28a745 !important;
+}
+
+.bg-admin-warning {
+  background-color: #ffc107 !important;
+}
+
+.bg-admin-danger {
+  background-color: #dc3545 !important;
+}
+
+.bg-admin-info {
+  background-color: #17a2b8 !important;
+}
+
+.footer-admin {
+  background-color: #f8f9fa;
+  border-top: 1px solid #dee2e6;
+}
