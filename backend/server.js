@@ -538,22 +538,34 @@ app.put('/api/admin/transactions/:id/approve', requireAdmin, (req, res) => {
 // Get Referral Details
 
 // Admin: Approve Recharge (This would be called by admin to approve a recharge)
-app.put('/api/admin/transactions/:id/approve', requireAdmin, (req, res) => {
-
 // Admin: Approve Recharge (This would be called by admin to approve a recharge)
-      return res.status(401).json({ message: 'No token provided' });
+app.put('/api/admin/transactions/:id/approve', requireAdmin, (req, res) => {
+  try {
+    const transactionId = parseInt(req.params.id);
+    const transaction = transactions.find(t => t.id === transactionId);
+    
+    if (!transaction) {
+      return res.status(404).json({ message: 'Transaction not found' });
     }
     
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'a0QAW6CshPrs3tFjy8I8YwKsIlT8vLSNgYvG3CVgH481d+tB++duJuAlI8mQ2tKiiWqcqRY5lcltkAS4iUQhZw==');
-    const user = users.find(u => u.id === decoded.id);
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+    if (transaction.status !== 'pending') {
+      return res.status(400).json({ message: 'Transaction is not pending' });
     }
     
-    const userTransactions = transactions.filter(t => t.userId === user.id);
+    // Update transaction status
+    transaction.status = 'completed';
+    transaction.updatedAt = new Date();
     
-    res.json({ transactions: userTransactions });
+    // Add amount to user's withdrawal wallet
+    const user = users.find(u => u.id === transaction.userId);
+    if (user) {
+      user.withdrawalWallet += transaction.amount;
+    }
+    
+    res.json({
+      message: 'Recharge approved successfully',
+      transaction
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
