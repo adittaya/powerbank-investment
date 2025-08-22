@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: powerbank-investment-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 18
+      - key: PORT
+        value: 10000
+      - key: SUPABASE_ACCES_KEY
+        value: sbp_ecd1bd4c6a3c4ff6d0739ff4f7516bbbb24a52c0
+      - key: SUPABASE_URL
+        value: https://lbyoclibrlczuiolihza.supabase.co
+      - key: SUPABASE_API_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxieW9jbGlicmxjenVpb2xpaHphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4ODMyMDAsImV4cCI6MjA3MTQ1OTIwMH0.XX9Zbmb_ZbFKDLXtCkQv6PG3REI3FXcxtEj3ENfqijs
+      - key: JWT_SECRET
+        value: a0QAW6CshPrs3tFjy8I8YwKsIlT8vLSNgYvG3CVgH481d+tB++duJuAlI8mQ2tKiiWqcqRY5lcltkAS4iUQhZw==
+      - key: RENDER_API_KEY
+        value: rnd_5bmuScnOzY3YB1YKptYk82vTchDD
